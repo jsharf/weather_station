@@ -1,0 +1,3 @@
+[submodule "inky"]
+	path = inky
+	url = git@github.com:pimoroni/inky.git
