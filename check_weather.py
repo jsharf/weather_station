@@ -1,6 +1,7 @@
 import io
 import json
 import requests
+import textwrap
 import xmltodict
 
 from datetime import datetime, timedelta, date
@@ -40,7 +41,6 @@ def overlay_timestamp(draw, font_size, offset):
                    outline=ImageColor.getrgb("#D1E"))
     draw.text((offset[0] + 5, offset[1]), date_string, font=font, align="left", fill=ImageColor.getrgb("#007"))
 
-
 def overlay_train_group(draw, group, y_offset, font_size=25):
     """ A group is a combo of (route, destination). """
     # First, let's grab the destination and route name.
@@ -56,27 +56,37 @@ def overlay_train_group(draw, group, y_offset, font_size=25):
     start = datetime(today.year, today.month, today.day, tzinfo=est)
     arrival_strings = []
     now = datetime.now(est)
+    last_time = datetime.min
     for time in arrivals:
         time_str = (timedelta(seconds=time))
         arrival = start + timedelta(seconds=time)
-        if arrival < now:
-            print(f"Ignoring arrival in the past: {arrival}")
+        if now + timedelta(minutes=3) > arrival:
+            print(f"Ignoring arrival too soon: {arrival}")
             continue
-        arrival_in = arrival - now
-        arrival_strings.append(str(arrival_in.seconds//60))
+        arrival_string = arrival.strftime(":%M") if last_time.hour == arrival.hour else arrival.strftime("%H:%M")
+        if last_time == datetime.min:
+            arrival_string = arrival.strftime("%H:%M")
+        arrival_strings.append(arrival_string)
+        last_time = arrival
 
     x_offset = 10
     width = 330
     padding_x = 5
     padding_y = 5
     height = font_size + padding_y * 2
+    group_summary = f"{destination} ({route}) | {', '.join(arrival_strings)}"
+    lines = textwrap.wrap(group_summary, width=27)
+    font = ImageFont.truetype(TRUETYPE_FONT, font_size)
+    text_height = sum([font.getsize(line)[1] for line in lines])
+    height = text_height + padding_y * 2
     draw.rectangle([(x_offset, y_offset), (x_offset + width, y_offset + height)],
                    fill=ImageColor.getrgb("#C0FFEE"),
                    outline=ImageColor.getrgb("#D1E"))
-    font = ImageFont.truetype(TRUETYPE_FONT, font_size)
-    group_summary = f"{destination} ({route}) | {', '.join(arrival_strings)}"
-    draw.text((x_offset + padding_x, y_offset), group_summary, font=font, align="left", fill=ImageColor.getrgb("#007"))
+    for line in lines:
+        draw.text((x_offset + padding_x, y_offset + padding_y), line, font=font, align="left", fill=ImageColor.getrgb("#007"))
+        y_offset += font.getsize(line)[1]
     print(group_summary)
+    return height
 
 def overlay_image(bg_image, fg_image, offset):
     bg_image.paste(im=fg_image, box=offset)
@@ -108,8 +118,10 @@ def main():
         overlay_image(im, weather_widget, (350, 0))
         draw = ImageDraw.Draw(im)
         overlay_timestamp(draw, font_size=25, offset=(450, 390))
+        y_offset = 20
         for i, group in enumerate(groups):
-            overlay_train_group(draw, group, 20 + i * 50, font_size=20)
+            height = overlay_train_group(draw, group, y_offset, font_size=20)
+            y_offset += height + 10
         display.set_image(im)
         display.show()
 
