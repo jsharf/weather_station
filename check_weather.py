@@ -30,6 +30,17 @@ def fetch_xml(url):
     response = requests.get(url)
     return xmltodict.parse(response.content)
 
+def overlay_timestamp(draw, font_size, offset):
+    est = tz.gettz('America/New_York')
+    now = datetime.now(est)
+    font = ImageFont.truetype(TRUETYPE_FONT, font_size)
+    date_string = now.strftime("%H:%M:%S")
+    draw.rectangle([offset, (offset[0] + 140, offset[1] + 40)],
+                   fill=ImageColor.getrgb("#C0FFEE"),
+                   outline=ImageColor.getrgb("#D1E"))
+    draw.text(offset, date_string, font=font, align="left", fill=ImageColor.getrgb("#007"))
+
+
 def overlay_train_group(draw, group, y_offset, font_size=25):
     """ A group is a combo of (route, destination). """
     # First, let's grab the destination and route name.
@@ -96,8 +107,9 @@ def main():
         im = im.resize(display.resolution)
         overlay_image(im, weather_widget, (350, 0))
         draw = ImageDraw.Draw(im)
+        overlay_timestamp(draw, font_size=25, offset=(450, 390))
         for i, group in enumerate(groups):
-            overlay_train_group(draw, group, 20 + i * 50, font_size=30)
+            overlay_train_group(draw, group, 20 + i * 50, font_size=20)
         display.set_image(im)
         display.show()
 
