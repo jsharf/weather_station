@@ -38,7 +38,7 @@ def overlay_timestamp(draw, font_size, offset):
     draw.rectangle([offset, (offset[0] + 140, offset[1] + 40)],
                    fill=ImageColor.getrgb("#C0FFEE"),
                    outline=ImageColor.getrgb("#D1E"))
-    draw.text(offset, date_string, font=font, align="left", fill=ImageColor.getrgb("#007"))
+    draw.text((offset[0] + 5, offset[1]), date_string, font=font, align="left", fill=ImageColor.getrgb("#007"))
 
 
 def overlay_train_group(draw, group, y_offset, font_size=25):
