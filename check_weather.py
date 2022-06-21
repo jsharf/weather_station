@@ -30,7 +30,7 @@ def fetch_xml(url):
     response = requests.get(url)
     return xmltodict.parse(response.content)
 
-def overlay_train_group(draw, group, y_offset, font_size=18):
+def overlay_train_group(draw, group, y_offset, font_size=25):
     """ A group is a combo of (route, destination). """
     # First, let's grab the destination and route name.
     destination = find("headsign", group)
@@ -56,19 +56,20 @@ def overlay_train_group(draw, group, y_offset, font_size=18):
         arrival_strings.append(str(arrival_in.seconds//60))
 
     x_offset = 10
-    width = 200
-    height = 22
-    padding = 2
+    width = 330
+    padding_x = 5
+    padding_y = 5
+    height = font_size + padding_y * 2
     draw.rectangle([(x_offset, y_offset), (x_offset + width, y_offset + height)],
                    fill=ImageColor.getrgb("#C0FFEE"),
                    outline=ImageColor.getrgb("#D1E"))
     font = ImageFont.truetype(TRUETYPE_FONT, font_size)
     group_summary = f"{destination} ({route}) | {', '.join(arrival_strings)}"
-    draw.text((x_offset + padding, y_offset + padding), group_summary, font=font, align="left", fill=ImageColor.getrgb("#007"))
+    draw.text((x_offset + padding_x, y_offset), group_summary, font=font, align="left", fill=ImageColor.getrgb("#007"))
     print(group_summary)
 
 def overlay_image(bg_image, fg_image, offset):
-    bg_image.paste(im=fg_image, box=(250, 100))
+    bg_image.paste(im=fg_image, box=offset)
 
 def find(element, obj):
     """ Use a period-separated path to index elements in a nested dictionary. """
@@ -90,13 +91,14 @@ def main():
     weather_request = requests.get(url=WEATHER_SMALL_URL)
     weather_file = io.BytesIO(weather_request.content)
     weather_widget = Image.open(weather_file)
+    weather_widget = weather_widget.resize((250, 448))
 
     with Image.open(SUBWAY_MAP) as im:
         im = im.resize(display.resolution)
-        overlay_image(im, weather_widget, (350, 100, 600, 440))
+        overlay_image(im, weather_widget, (350, 0))
         draw = ImageDraw.Draw(im)
         for i, group in enumerate(groups):
-            overlay_train_group(draw, group, 20 + i * 25)
+            overlay_train_group(draw, group, 20 + i * 50, font_size=30)
         display.set_image(im)
         display.show()
 
