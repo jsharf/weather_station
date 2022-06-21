@@ -36,7 +36,6 @@ def overlay_train_group(draw, group, y_offset, font_size=25):
     destination = find("headsign", group)
     route_id = find("route.id", group)
     route = route_id.split(":")[1]
-    print(f"Group headed to {destination} on route {route}.")
 
     # Now, let's collect arrival times.
     times = group["times"]
