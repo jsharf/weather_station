@@ -63,9 +63,9 @@ def overlay_train_group(draw, group, y_offset, font_size=25):
         if now + timedelta(minutes=3) > arrival:
             print(f"Ignoring arrival too soon: {arrival}")
             continue
-        arrival_string = arrival.strftime(":%M") if last_time.hour == arrival.hour else arrival.strftime("%H:%M")
+        arrival_string = arrival.strftime(":%M") if last_time.hour == arrival.hour else arrival.strftime("%I:%M")
         if last_time == datetime.min:
-            arrival_string = arrival.strftime("%H:%M")
+            arrival_string = arrival.strftime("%I:%M")
         arrival_strings.append(arrival_string)
         last_time = arrival
 
