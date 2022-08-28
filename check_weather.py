@@ -1,14 +1,16 @@
 import io
 import json
+import os
 import requests
 import textwrap
 import xmltodict
 
+from dataclasses import dataclass
 from datetime import datetime, timedelta, date
 from dateutil import tz as tz
 from inky.auto import auto
 from PIL import Image, ImageDraw, ImageFont, ImageColor
-
+from matplotlib import pyplot as plt
 
 SATELLITE_URL = r'https://graphical.weather.gov/images/northeast/MaxT1_northeast.png'
 
@@ -16,12 +18,16 @@ WEATHER_URL = r'https://www.theweather.com/wimages/foto542cda2440863f662eba4e1b4
 WEATHER_SMALL_URL = r'https://www.theweather.com/wimages/fotofa4eef0c623ca593933eb717316fffe2.png'
 SUBWAY_MAP = r'Subway_Map.jpg'
 
-
 TRUETYPE_FONT = r'/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf'
 
 MTA_7_URL = r'https://otp-mta-prod.camsys-apps.com/otp/routers/default/nearby?stops=MTASBWY:721&apikey=2ctbNX4XX7oS5ywqVQT86DntRQQw59eB&groupByParent=true&routes=&timeRange=3600'
 
 MTA_G_URL = r'https://otp-mta-prod.camsys-apps.com/otp/routers/default/nearby?stops=MTASBWY:G24&apikey=2ctbNX4XX7oS5ywqVQT86DntRQQw59eB&groupByParent=true&routes=&timeRange=3600'
+
+# This is an esp32 webserver on the LAN. Serves timestamped CO2 readings on the
+# root url.
+CO2_PPM_URL = r'http://esp32.local/'
+CO2_PPM_CACHE = r'./co2_ppm_samples.json'
 
 def fetch_json(url):
     response = requests.get(url)
@@ -99,6 +105,53 @@ def find(element, obj):
         rv = rv[key]
     return rv
 
+@dataclass
+class Co2Sample:
+  timestamp: datetime
+  co2_ppm: float
+
+def refresh_co2_ppm_cache():
+    CO2_PPM_URL 
+    response = requests.get(CO2_PPM_URL)
+    samples = []
+    for sample_str in response.content.split('\n'):
+        sample_str = sample_str.strip()
+        (timestamp, co2_ppm) = sample_str.split(',')
+        # Parse the timestamp. D/M/Y H:M:S
+        samples.append(Co2Sample(datetime.strptime(timestamp, "%d/%m/%Y %H:%M:%S"), float(co2_ppm)))
+    # If the cache file doesn't exist, create it.
+    if not os.path.exists(CO2_PPM_CACHE):
+        with open(CO2_PPM_CACHE, 'w') as f:
+            pass # Empty file.
+    # Append the samples to a cache file.
+    with open(CO2_PPM_CACHE, 'a') as f:
+        for sample in samples:
+            f.write(f"{sample.timestamp},{sample.co2_ppm}\n")
+
+def get_co2_ppm_cache():
+    results = []
+    with open(CO2_PPM_CACHE, 'r') as f:
+        for sample_str in f.readlines():
+            (timestamp, co2_ppm) = sample_str.split(',')
+            results.append(Co2Sample(datetime.strptime(timestamp, "%d/%m/%Y %H:%M:%S"), float(co2_ppm)))
+    # Sort the results by time.
+    results.sort(key=lambda x: x.timestamp)
+    return results
+
+def co2_ppm_graph_image(co2_ppm_samples):
+    """
+    Generate a graph of CO2 ppm samples.
+    """
+    fig, ax = plt.subplots()
+    ax.plot([sample.timestamp for sample in co2_ppm_samples], [sample.co2_ppm for sample in co2_ppm_samples])
+    ax.set_xlabel('Time')
+    ax.set_ylabel('CO2 ppm')
+    ax.set_title('CO2 ppm')
+    # Render the graph to an image. Then call overlay_image to overlay it on the background image.
+    image = Image.frombytes('RGB', fig.canvas.get_width_height(),
+                            fig.canvas.tostring_rgb())
+    return image
+
 def main():
     display = auto()
     MTA_7_data = fetch_json(MTA_7_URL)[0]
@@ -113,9 +166,14 @@ def main():
     weather_widget = Image.open(weather_file)
     weather_widget = weather_widget.resize((250, 448))
 
+    refresh_co2_ppm_cache()
+    co2_ppm_samples = get_co2_ppm_cache()
+    co2_ppm_graph = co2_ppm_graph_image(co2_ppm_samples)
+
     with Image.open(SUBWAY_MAP) as im:
         im = im.resize(display.resolution)
         overlay_image(im, weather_widget, (350, 0))
+        overlay_image(im, co2_ppm_graph, (0, 200))
         draw = ImageDraw.Draw(im)
         overlay_timestamp(draw, font_size=25, offset=(450, 390))
         y_offset = 20
@@ -124,7 +182,6 @@ def main():
             y_offset += height + 10
         display.set_image(im)
         display.show()
-
 
 
 if __name__ == "__main__":
