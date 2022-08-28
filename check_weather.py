@@ -11,6 +11,7 @@ from dateutil import tz as tz
 from inky.auto import auto
 from PIL import Image, ImageDraw, ImageFont, ImageColor
 from matplotlib import pyplot as plt
+from appdirs import user_cache_dir
 
 SATELLITE_URL = r'https://graphical.weather.gov/images/northeast/MaxT1_northeast.png'
 
@@ -24,10 +25,12 @@ MTA_7_URL = r'https://otp-mta-prod.camsys-apps.com/otp/routers/default/nearby?st
 
 MTA_G_URL = r'https://otp-mta-prod.camsys-apps.com/otp/routers/default/nearby?stops=MTASBWY:G24&apikey=2ctbNX4XX7oS5ywqVQT86DntRQQw59eB&groupByParent=true&routes=&timeRange=3600'
 
+CACHE_DIR = r'home_station'
+
 # This is an esp32 webserver on the LAN. Serves timestamped CO2 readings on the
 # root url.
 CO2_PPM_URL = r'http://esp32.local/'
-CO2_PPM_CACHE = r'./co2_ppm_samples.json'
+CO2_PPM_CACHE = r'/co2_ppm_samples.json'
 
 def fetch_json(url):
     response = requests.get(url)
@@ -111,7 +114,8 @@ class Co2Sample:
   co2_ppm: float
 
 def refresh_co2_ppm_cache():
-    CO2_PPM_URL 
+    cache_dir = user_cache_dir(CACHE_DIR)
+    cache_file = f"{cache_dir}/{CO2_PPM_CACHE}"
     response = requests.get(CO2_PPM_URL)
     samples = []
     for sample_str in response.content.split('\n'):
@@ -120,17 +124,19 @@ def refresh_co2_ppm_cache():
         # Parse the timestamp. D/M/Y H:M:S
         samples.append(Co2Sample(datetime.strptime(timestamp, "%d/%m/%Y %H:%M:%S"), float(co2_ppm)))
     # If the cache file doesn't exist, create it.
-    if not os.path.exists(CO2_PPM_CACHE):
-        with open(CO2_PPM_CACHE, 'w') as f:
+    if not os.path.exists(cache_file):
+        with open(cache_file, 'w') as f:
             pass # Empty file.
     # Append the samples to a cache file.
-    with open(CO2_PPM_CACHE, 'a') as f:
+    with open(cache_file, 'a') as f:
         for sample in samples:
             f.write(f"{sample.timestamp},{sample.co2_ppm}\n")
 
 def get_co2_ppm_cache():
     results = []
-    with open(CO2_PPM_CACHE, 'r') as f:
+    cache_dir = user_cache_dir(CACHE_DIR)
+    cache_file = f"{cache_dir}/{CO2_PPM_CACHE}"
+    with open(cache_file, 'r') as f:
         for sample_str in f.readlines():
             (timestamp, co2_ppm) = sample_str.split(',')
             results.append(Co2Sample(datetime.strptime(timestamp, "%d/%m/%Y %H:%M:%S"), float(co2_ppm)))
