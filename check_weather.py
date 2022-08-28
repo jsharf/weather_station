@@ -1,5 +1,6 @@
 import io
 import json
+import logging
 import os
 import requests
 import textwrap
@@ -12,6 +13,8 @@ from inky.auto import auto
 from PIL import Image, ImageDraw, ImageFont, ImageColor
 from matplotlib import pyplot as plt
 from appdirs import user_cache_dir
+
+logger = logging.getLogger(__name__)
 
 SATELLITE_URL = r'https://graphical.weather.gov/images/northeast/MaxT1_northeast.png'
 
@@ -114,9 +117,12 @@ class Co2Sample:
   co2_ppm: float
 
 def refresh_co2_ppm_cache():
-    cache_dir = user_cache_dir(CACHE_DIR)
-    cache_file = f"{cache_dir}/{CO2_PPM_CACHE}"
-    response = requests.get(CO2_PPM_URL)
+    try:
+        response = requests.get(CO2_PPM_URL)
+    except requests.exceptions.RequestException as e:
+        logger.error(e)
+        return
+
     samples = []
     for sample_str in response.content.split('\n'):
         sample_str = sample_str.strip()
@@ -124,6 +130,8 @@ def refresh_co2_ppm_cache():
         # Parse the timestamp. D/M/Y H:M:S
         samples.append(Co2Sample(datetime.strptime(timestamp, "%d/%m/%Y %H:%M:%S"), float(co2_ppm)))
     # If the cache file doesn't exist, create it.
+    cache_dir = user_cache_dir(CACHE_DIR)
+    cache_file = f"{cache_dir}/{CO2_PPM_CACHE}"
     if not os.path.exists(cache_file):
         with open(cache_file, 'w') as f:
             pass # Empty file.
