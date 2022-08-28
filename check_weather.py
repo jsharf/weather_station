@@ -167,6 +167,7 @@ def co2_ppm_graph_image(co2_ppm_samples):
     return image
 
 def main():
+    logger.basicConfig(level=logging.INFO)
     display = auto()
     MTA_7_data = fetch_json(MTA_7_URL)[0]
     MTA_G_data = fetch_json(MTA_G_URL)[0]
