@@ -6,13 +6,14 @@ import requests
 import textwrap
 import xmltodict
 
+from appdirs import user_cache_dir
 from dataclasses import dataclass
 from datetime import datetime, timedelta, date
 from dateutil import tz as tz
 from inky.auto import auto
-from PIL import Image, ImageDraw, ImageFont, ImageColor
 from matplotlib import pyplot as plt
-from appdirs import user_cache_dir
+from pathlib import Path
+from PIL import Image, ImageDraw, ImageFont, ImageColor
 
 logger = logging.getLogger(__name__)
 
@@ -130,19 +131,23 @@ def refresh_co2_ppm_cache():
         logger.info(f"line: {sample_str}")
         sample_str = sample_str.decode("utf-8").strip()
         try:
-            (timestamp, co2_ppm) = sample_str.split(",")
+            (timestamp, co2_ppm_str) = sample_str.split(",")
         except ValueError as e:
             logger.info(f"Could not parse line {sample_str}: {e}")
             break
         logger.info(f"Received: {sample_str}")
         # Parse the timestamp. D/M/Y H:M:S
         try:
-            samples.append(Co2Sample(datetime.strptime(str(timestamp), "%d/%m/%Y %H:%M:%S (%Z)"), float(co2_ppm)))
-            logger.info(f"Parsed: {str(samples[-1])}")
+            co2_ppm_str = co2_ppm_str.strip()
+            (co2_ppm, unit) = co2_ppm_str.split(" ")
+            if unit == "ppm":
+                samples.append(Co2Sample(datetime.strptime(str(timestamp), "%d/%m/%Y %H:%M:%S (%Z)"), float(co2_ppm)))
+                logger.info(f"Parsed: {str(samples[-1])}")
         except ValueError as e:
             logger.error(f"Could not parse sample: {sample_str}: {e}")
     # If the cache file doesn't exist, create it.
     cache_dir = user_cache_dir(CACHE_DIR)
+    Path(cache_dir).mkdir(exist_ok=True)
     cache_file = f"{cache_dir}/{CO2_PPM_CACHE}"
     if not os.path.exists(cache_file):
         with open(cache_file, 'w') as f:
@@ -159,10 +164,16 @@ def get_co2_ppm_cache():
     with open(cache_file, 'r') as f:
         for sample_str in f.readlines():
             (timestamp, co2_ppm) = sample_str.split(',')
-            results.append(Co2Sample(datetime.strptime(timestamp, "%d/%m/%Y %H:%M:%S (%Z)"), float(co2_ppm)))
+            results.append(Co2Sample(datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S"), float(co2_ppm)))
     # Sort the results by time.
     results.sort(key=lambda x: x.timestamp)
     return results
+
+def image_from_plt_fig(fig):
+    buf = io.BytesIO()
+    fig.savefig(buf)
+    buf.seek(0)
+    return Image.open(buf)
 
 def co2_ppm_graph_image(co2_ppm_samples):
     """
@@ -173,10 +184,7 @@ def co2_ppm_graph_image(co2_ppm_samples):
     ax.set_xlabel('Time')
     ax.set_ylabel('CO2 ppm')
     ax.set_title('CO2 ppm')
-    # Render the graph to an image. Then call overlay_image to overlay it on the background image.
-    image = Image.frombytes('RGB', fig.canvas.get_width_height(),
-                            fig.canvas.tostring_rgb())
-    return image
+    return image_from_plt_fig(fig)
 
 def main():
     logging.basicConfig(level=logging.INFO)
@@ -196,11 +204,12 @@ def main():
     refresh_co2_ppm_cache()
     co2_ppm_samples = get_co2_ppm_cache()
     co2_ppm_graph = co2_ppm_graph_image(co2_ppm_samples)
+    co2_ppm_graph = co2_ppm_graph.resize((300, 200))
 
     with Image.open(SUBWAY_MAP) as im:
         im = im.resize(display.resolution)
         overlay_image(im, weather_widget, (350, 0))
-        overlay_image(im, co2_ppm_graph, (0, 200))
+        overlay_image(im, co2_ppm_graph, (0, 300))
         draw = ImageDraw.Draw(im)
         overlay_timestamp(draw, font_size=25, offset=(450, 390))
         y_offset = 20
