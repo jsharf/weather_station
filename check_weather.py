@@ -129,7 +129,7 @@ def refresh_co2_ppm_cache():
         sample_str = sample_str.strip()
         (timestamp, co2_ppm) = sample_str.split(',')
         # Parse the timestamp. D/M/Y H:M:S
-        samples.append(Co2Sample(datetime.strptime(timestamp, "%d/%m/%Y %H:%M:%S"), float(co2_ppm)))
+        samples.append(Co2Sample(datetime.strptime(timestamp, "%d/%m/%Y %H:%M:%S (%Z)"), float(co2_ppm)))
     # If the cache file doesn't exist, create it.
     cache_dir = user_cache_dir(CACHE_DIR)
     cache_file = f"{cache_dir}/{CO2_PPM_CACHE}"
