@@ -33,7 +33,7 @@ CACHE_DIR = r'home_station'
 # This is an esp32 webserver on the LAN. Serves timestamped CO2 readings on the
 # root url.
 CO2_PPM_URL = r'http://esp32.local/'
-CO2_PPM_CACHE = r'/co2_ppm_samples.json'
+CO2_PPM_CACHE = r'co2_ppm_samples.json'
 
 def fetch_json(url):
     response = requests.get(url)
@@ -124,12 +124,23 @@ def refresh_co2_ppm_cache():
         return
 
     samples = []
-    response_str = str(response.content.split('\n'))
-    for sample_str in response_str:
-        sample_str = sample_str.strip()
-        (timestamp, co2_ppm) = sample_str.split(',')
+    response_lines = response.content.split(b"\n")
+    logger.info(f"lines: {len(response_lines)}")
+    for sample_str in response_lines:
+        logger.info(f"line: {sample_str}")
+        sample_str = sample_str.decode("utf-8").strip()
+        try:
+            (timestamp, co2_ppm) = sample_str.split(",")
+        except ValueError as e:
+            logger.info(f"Could not parse line {sample_str}: {e}")
+            break
+        logger.info(f"Received: {sample_str}")
         # Parse the timestamp. D/M/Y H:M:S
-        samples.append(Co2Sample(datetime.strptime(timestamp, "%d/%m/%Y %H:%M:%S (%Z)"), float(co2_ppm)))
+        try:
+            samples.append(Co2Sample(datetime.strptime(str(timestamp), "%d/%m/%Y %H:%M:%S (%Z)"), float(co2_ppm)))
+            logger.info(f"Parsed: {str(samples[-1])}")
+        except ValueError as e:
+            logger.error(f"Could not parse sample: {sample_str}: {e}")
     # If the cache file doesn't exist, create it.
     cache_dir = user_cache_dir(CACHE_DIR)
     cache_file = f"{cache_dir}/{CO2_PPM_CACHE}"
@@ -148,7 +159,7 @@ def get_co2_ppm_cache():
     with open(cache_file, 'r') as f:
         for sample_str in f.readlines():
             (timestamp, co2_ppm) = sample_str.split(',')
-            results.append(Co2Sample(datetime.strptime(timestamp, "%d/%m/%Y %H:%M:%S"), float(co2_ppm)))
+            results.append(Co2Sample(datetime.strptime(timestamp, "%d/%m/%Y %H:%M:%S (%Z)"), float(co2_ppm)))
     # Sort the results by time.
     results.sort(key=lambda x: x.timestamp)
     return results
