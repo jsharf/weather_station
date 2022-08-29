@@ -1,6 +1,7 @@
 import io
 import json
 import logging
+import matplotlib
 import os
 import requests
 import textwrap
@@ -179,8 +180,13 @@ def co2_ppm_graph_image(co2_ppm_samples):
     """
     Generate a graph of CO2 ppm samples.
     """
+    matplotlib.rc('xtick', labelsize=18)
+    matplotlib.rc('ytick', labelsize=15)
     fig, ax = plt.subplots()
-    ax.plot([sample.timestamp for sample in co2_ppm_samples], [sample.co2_ppm for sample in co2_ppm_samples])
+    times = [-(datetime.now() - sample.timestamp).total_seconds()/3600 for sample in co2_ppm_samples]
+    logger.info(f"Times: {times}")
+    co2_ppm = [sample.co2_ppm for sample in co2_ppm_samples]
+    ax.plot(times, co2_ppm)
     ax.set_xlabel('Time')
     ax.set_ylabel('CO2 ppm')
     ax.set_title('CO2 ppm')
@@ -204,12 +210,12 @@ def main():
     refresh_co2_ppm_cache()
     co2_ppm_samples = get_co2_ppm_cache()
     co2_ppm_graph = co2_ppm_graph_image(co2_ppm_samples)
-    co2_ppm_graph = co2_ppm_graph.resize((300, 200))
+    co2_ppm_graph = co2_ppm_graph.resize((350, 150))
 
     with Image.open(SUBWAY_MAP) as im:
         im = im.resize(display.resolution)
         overlay_image(im, weather_widget, (350, 0))
-        overlay_image(im, co2_ppm_graph, (0, 300))
+        overlay_image(im, co2_ppm_graph, (0, 298))
         draw = ImageDraw.Draw(im)
         overlay_timestamp(draw, font_size=25, offset=(450, 390))
         y_offset = 20
