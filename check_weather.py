@@ -124,7 +124,8 @@ def refresh_co2_ppm_cache():
         return
 
     samples = []
-    for sample_str in response.content.split('\n'):
+    response_str = str(response.content.split('\n'))
+    for sample_str in response_str:
         sample_str = sample_str.strip()
         (timestamp, co2_ppm) = sample_str.split(',')
         # Parse the timestamp. D/M/Y H:M:S
