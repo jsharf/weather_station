@@ -209,6 +209,8 @@ def main():
 
     refresh_co2_ppm_cache()
     co2_ppm_samples = get_co2_ppm_cache()
+    # Filter only samples from the last week.
+    co2_ppm_samples = [sample for sample in co2_ppm_samples if (datetime.now() - sample.timestamp) < timedelta(hours=120)]
     co2_ppm_graph = co2_ppm_graph_image(co2_ppm_samples)
     co2_ppm_graph = co2_ppm_graph.resize((350, 150))
 
