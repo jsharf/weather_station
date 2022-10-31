@@ -7,13 +7,12 @@ import requests
 import textwrap
 import xmltodict
 
-from appdirs import user_cache_dir
-from dataclasses import dataclass
+from co2_samples import *
+
 from datetime import datetime, timedelta, date
 from dateutil import tz as tz
 from inky.auto import auto
 from matplotlib import pyplot as plt
-from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageColor
 
 logger = logging.getLogger(__name__)
@@ -29,13 +28,6 @@ TRUETYPE_FONT = r'/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf'
 MTA_7_URL = r'https://otp-mta-prod.camsys-apps.com/otp/routers/default/nearby?stops=MTASBWY:721&apikey=2ctbNX4XX7oS5ywqVQT86DntRQQw59eB&groupByParent=true&routes=&timeRange=3600'
 
 MTA_G_URL = r'https://otp-mta-prod.camsys-apps.com/otp/routers/default/nearby?stops=MTASBWY:G24&apikey=2ctbNX4XX7oS5ywqVQT86DntRQQw59eB&groupByParent=true&routes=&timeRange=3600'
-
-CACHE_DIR = r'home_station'
-
-# This is an esp32 webserver on the LAN. Serves timestamped CO2 readings on the
-# root url.
-CO2_PPM_URL = r'http://esp32.local/'
-CO2_PPM_CACHE = r'co2_ppm_samples.json'
 
 def fetch_json(url):
     response = requests.get(url)
@@ -113,84 +105,11 @@ def find(element, obj):
         rv = rv[key]
     return rv
 
-@dataclass
-class Co2Sample:
-  timestamp: datetime
-  co2_ppm: float
-
-def refresh_co2_ppm_cache():
-    try:
-        response = requests.get(CO2_PPM_URL)
-    except requests.exceptions.RequestException as e:
-        logger.error(e)
-        return
-
-    samples = []
-    response_lines = response.content.split(b"\n")
-    logger.info(f"lines: {len(response_lines)}")
-    for sample_str in response_lines:
-        logger.info(f"line: {sample_str}")
-        sample_str = sample_str.decode("utf-8").strip()
-        try:
-            (timestamp, co2_ppm_str) = sample_str.split(",")
-        except ValueError as e:
-            logger.info(f"Could not parse line {sample_str}: {e}")
-            break
-        logger.info(f"Received: {sample_str}")
-        # Parse the timestamp. D/M/Y H:M:S
-        try:
-            co2_ppm_str = co2_ppm_str.strip()
-            (co2_ppm, unit) = co2_ppm_str.split(" ")
-            if unit == "ppm":
-                samples.append(Co2Sample(datetime.strptime(str(timestamp), "%d/%m/%Y %H:%M:%S (%Z)"), float(co2_ppm)))
-                logger.info(f"Parsed: {str(samples[-1])}")
-        except ValueError as e:
-            logger.error(f"Could not parse sample: {sample_str}: {e}")
-    # If the cache file doesn't exist, create it.
-    cache_dir = user_cache_dir(CACHE_DIR)
-    Path(cache_dir).mkdir(exist_ok=True)
-    cache_file = f"{cache_dir}/{CO2_PPM_CACHE}"
-    if not os.path.exists(cache_file):
-        with open(cache_file, 'w') as f:
-            pass # Empty file.
-    # Append the samples to a cache file.
-    with open(cache_file, 'a') as f:
-        for sample in samples:
-            f.write(f"{sample.timestamp},{sample.co2_ppm}\n")
-
-def get_co2_ppm_cache():
-    results = []
-    cache_dir = user_cache_dir(CACHE_DIR)
-    cache_file = f"{cache_dir}/{CO2_PPM_CACHE}"
-    with open(cache_file, 'r') as f:
-        for sample_str in f.readlines():
-            (timestamp, co2_ppm) = sample_str.split(',')
-            results.append(Co2Sample(datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S"), float(co2_ppm)))
-    # Sort the results by time.
-    results.sort(key=lambda x: x.timestamp)
-    return results
-
 def image_from_plt_fig(fig):
     buf = io.BytesIO()
     fig.savefig(buf)
     buf.seek(0)
     return Image.open(buf)
-
-def co2_ppm_graph_image(co2_ppm_samples):
-    """
-    Generate a graph of CO2 ppm samples.
-    """
-    matplotlib.rc('xtick', labelsize=18)
-    matplotlib.rc('ytick', labelsize=15)
-    fig, ax = plt.subplots()
-    times = [-(datetime.now() - sample.timestamp).total_seconds()/3600 for sample in co2_ppm_samples]
-    logger.info(f"Times: {times}")
-    co2_ppm = [sample.co2_ppm for sample in co2_ppm_samples]
-    ax.plot(times, co2_ppm)
-    ax.set_xlabel('Time')
-    ax.set_ylabel('CO2 ppm')
-    ax.set_title('CO2 ppm')
-    return image_from_plt_fig(fig)
 
 def main():
     logging.basicConfig(level=logging.INFO)
@@ -211,7 +130,8 @@ def main():
     co2_ppm_samples = get_co2_ppm_cache()
     # Filter only samples from the last week.
     co2_ppm_samples = [sample for sample in co2_ppm_samples if (datetime.now() - sample.timestamp) < timedelta(hours=120)]
-    co2_ppm_graph = co2_ppm_graph_image(co2_ppm_samples)
+    co2_ppm_fig = co2_ppm_graph_image(co2_ppm_samples)
+    co2_ppm_graph = image_from_plt_fig(co2_ppm_fig)
     co2_ppm_graph = co2_ppm_graph.resize((350, 150))
 
     with Image.open(SUBWAY_MAP) as im:
