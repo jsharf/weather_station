@@ -134,6 +134,12 @@ def main():
     co2_ppm_graph = image_from_plt_fig(co2_ppm_fig)
     co2_ppm_graph = co2_ppm_graph.resize((350, 150))
 
+    # If the last CO2 PPM was above 800, access the shelly smart socket at IP 192.168.0.190 and turn on the fan.
+    if co2_ppm_samples[-1].co2_ppm > 800:
+        requests.get(url="http://192.168.0.190/relay/0?turn=on")
+    else:
+        requests.get(url="http://192.168.0.190/relay/0?turn=off")
+
     with Image.open(SUBWAY_MAP) as im:
         im = im.resize(display.resolution)
         overlay_image(im, weather_widget, (350, 0))
