@@ -11,6 +11,8 @@ from datetime import datetime, timedelta, date
 from dateutil import tz as tz
 from pathlib import Path
 
+est = tz.gettz('America/New_York')
+
 logger = logging.getLogger(__name__)
 
 CACHE_DIR = r'home_station'
@@ -29,12 +31,11 @@ class Co2Sample:
 
 def parse_sample(sample_str):
     try:
-        (timestamp, co2_ppm_str, temp_c, rel_humidity) = sample_str.split(",")
+        (timestamp_str, co2_ppm_str, temp_c, rel_humidity) = sample_str.split(",")
     except ValueError as e:
         logger.info(f"Could not parse line {sample_str}: {e}")
         return None
     logger.info(f"Received: {sample_str}")
-    # Parse the timestamp. D/M/Y H:M:S
     try:
         co2_ppm_str = co2_ppm_str.strip()
         (co2_ppm, unit) = co2_ppm_str.split(" ")
@@ -44,7 +45,12 @@ def parse_sample(sample_str):
         (rel_humidity, _) = rel_humidity_str.split(" ")
         if unit != "ppm":
             return None
-        return Co2Sample(datetime.strptime(str(timestamp), "%d/%m/%Y %H:%M:%S (%Z)"), float(co2_ppm), float(temp_c), float(rel_humidity))
+        # Parse the timestamp. D/M/Y H:M:S
+        timestamp = datetime.strptime(str(timestamp_str), "%d/%m/%Y %H:%M:%S (%Z)")
+        NYC = tz.gettz("America/New_York")
+        timestamp = timestamp.replace(tzinfo=NYC)
+        print("======" + timestamp.strftime("%d/%m/%Y %H:%M:%S (%Z)"))
+        return Co2Sample(timestamp, float(co2_ppm), float(temp_c), float(rel_humidity))
     except ValueError as e:
         logger.error(f"Could not parse sample: {sample_str}: {e}")
         return None
@@ -60,7 +66,10 @@ def refresh_co2_ppm_cache():
     response_lines = response.content.split(b"\n")
     for sample_str in response_lines:
         sample_str = sample_str.decode("utf-8").strip()
-        samples.append(parse_sample(sample_str))
+        sample = parse_sample(sample_str)
+        if sample is None:
+            continue
+        samples.append(sample)
     # If the cache file doesn't exist, create it.
     cache_dir = user_cache_dir(CACHE_DIR)
     Path(cache_dir).mkdir(exist_ok=True)
@@ -71,10 +80,10 @@ def refresh_co2_ppm_cache():
     # Append the samples to a cache file.
     with open(cache_file, 'a') as f:
         for sample in samples:
-            f.write(f"{sample.timestamp},{sample.co2_ppm}\n")
+            f.write(sample.timestamp.strftime("%d/%m/%Y %H:%M:%S (%Z)") + f",{sample.co2_ppm} ppm,{sample.temp_c} C,{sample.rel_humidity} rel_humidity\n")
     # If the file is larger than 5MB, rename it and start a new one.
     if os.path.getsize(cache_file) > 5 * 1024 * 1024:
-        os.rename(cache_file, f"{cache_file}.{datetime.now().strftime('%Y%m%dT%H%M%S')}")
+        os.rename(cache_file, f"{cache_file}.{datetime.now(est).strftime('%Y%m%dT%H%M%S')}")
         with open(cache_file, 'w') as f:
             pass # Empty file.
 
@@ -84,7 +93,10 @@ def get_co2_ppm_cache():
     cache_file = f"{cache_dir}/{CO2_PPM_CACHE}"
     with open(cache_file, 'r') as f:
         for sample_str in f.readlines():
-            results.append(parse_sample(sample_str))
+            sample = parse_sample(sample_str)
+            if sample is None:
+                continue
+            results.append(sample)
     # Sort the results by time.
     results.sort(key=lambda x: x.timestamp)
     return results
@@ -116,7 +128,7 @@ def co2_ppm_graph_image(co2_ppm_samples):
     matplotlib.rc('xtick', labelsize=18)
     matplotlib.rc('ytick', labelsize=15)
     fig, ax = plt.subplots()
-    times = [-(datetime.now() - sample.timestamp).total_seconds()/3600 for sample in co2_ppm_samples]
+    times = [-(datetime.now(est) - sample.timestamp).total_seconds()/3600 for sample in co2_ppm_samples]
     co2_ppm = [sample.co2_ppm for sample in co2_ppm_samples]
     temp = [sample.temp_c for sample in co2_ppm_samples]
     rel_humidity = [sample.rel_humidity for sample in co2_ppm_samples]

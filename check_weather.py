@@ -117,7 +117,11 @@ def main():
     refresh_co2_ppm_cache()
     co2_ppm_samples = get_co2_ppm_cache()
     # Filter only samples from the last week.
-    co2_ppm_samples = [sample for sample in co2_ppm_samples if (datetime.now() - sample.timestamp) < timedelta(hours=120)]
+    est = tz.gettz('America/New_York')
+    co2_ppm_samples = [sample for sample in co2_ppm_samples if (datetime.now(est) - sample.timestamp) < timedelta(hours=120)]
+    if len(co2_ppm_samples) == 0:
+        logger.info(f"No sensor samples to graph.")
+        return
     co2_ppm_fig = co2_ppm_graph_image(co2_ppm_samples)
     co2_ppm_graph = image_from_plt_fig(co2_ppm_fig)
     co2_ppm_graph = co2_ppm_graph.resize(display.resolution)
