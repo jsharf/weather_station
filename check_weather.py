@@ -114,42 +114,26 @@ def image_from_plt_fig(fig):
 def main():
     logging.basicConfig(level=logging.INFO)
     display = auto()
-    MTA_7_data = fetch_json(MTA_7_URL)[0]
-    MTA_G_data = fetch_json(MTA_G_URL)[0]
-
-    groups = find("groups", MTA_7_data)
-    groups.extend(find("groups", MTA_G_data))
-
-    # Display panel showing the weather.
-    weather_request = requests.get(url=WEATHER_SMALL_URL)
-    weather_file = io.BytesIO(weather_request.content)
-    weather_widget = Image.open(weather_file)
-    weather_widget = weather_widget.resize((250, 448))
-
     refresh_co2_ppm_cache()
     co2_ppm_samples = get_co2_ppm_cache()
     # Filter only samples from the last week.
     co2_ppm_samples = [sample for sample in co2_ppm_samples if (datetime.now() - sample.timestamp) < timedelta(hours=120)]
     co2_ppm_fig = co2_ppm_graph_image(co2_ppm_samples)
     co2_ppm_graph = image_from_plt_fig(co2_ppm_fig)
-    co2_ppm_graph = co2_ppm_graph.resize((350, 150))
+    co2_ppm_graph = co2_ppm_graph.resize(display.resolution)
 
-    # If the last CO2 PPM was above 800, access the shelly smart socket at IP 192.168.0.190 and turn on the fan.
+    # If the CO2 PPM is above 800, access the shelly smart socket at IP 192.168.0.190 and turn on the fan.
+    # If the CO2 PPM has fallen below 450, we can shut the fan off.
     if co2_ppm_samples[-1].co2_ppm > 800:
         requests.get(url="http://192.168.0.190/relay/0?turn=on")
-    else:
+    elif co2_ppm_samples[-1].co2_ppm < 450:
         requests.get(url="http://192.168.0.190/relay/0?turn=off")
 
     with Image.open(SUBWAY_MAP) as im:
         im = im.resize(display.resolution)
-        overlay_image(im, weather_widget, (350, 0))
-        overlay_image(im, co2_ppm_graph, (0, 298))
+        overlay_image(im, co2_ppm_graph, (0, 0))
         draw = ImageDraw.Draw(im)
         overlay_timestamp(draw, font_size=25, offset=(450, 390))
-        y_offset = 20
-        for i, group in enumerate(groups):
-            height = overlay_train_group(draw, group, y_offset, font_size=20)
-            y_offset += height + 10
         display.set_image(im)
         display.show()
 

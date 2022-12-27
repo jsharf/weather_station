@@ -23,6 +23,30 @@ CO2_PPM_CACHE = r'co2_ppm_samples.csv'
 class Co2Sample:
   timestamp: datetime
   co2_ppm: float
+  temp_c: float
+  rel_humidity: float
+
+def parse_sample(sample_str):
+    try:
+        (timestamp, co2_ppm_str, temp_c, rel_humidity) = sample_str.split(",")
+    except ValueError as e:
+        logger.info(f"Could not parse line {sample_str}: {e}")
+        return None
+    logger.info(f"Received: {sample_str}")
+    # Parse the timestamp. D/M/Y H:M:S
+    try:
+        co2_ppm_str = co2_ppm_str.strip()
+        (co2_ppm, unit) = co2_ppm_str.split(" ")
+        temp_str = temp_c.strip()
+        (temp_c, _) = temp_str.split(" ")
+        rel_humidity_str = rel_humidity.strip()
+        (rel_humidity, _) = rel_humidity_str.split(" ")
+        if unit != "ppm":
+            return None
+        return Co2Sample(datetime.strptime(str(timestamp), "%d/%m/%Y %H:%M:%S (%Z)"), float(co2_ppm), float(temp_c), float(rel_humidity))
+    except ValueError as e:
+        logger.error(f"Could not parse sample: {sample_str}: {e}")
+        return None
 
 def refresh_co2_ppm_cache():
     try:
@@ -33,25 +57,9 @@ def refresh_co2_ppm_cache():
 
     samples = []
     response_lines = response.content.split(b"\n")
-    logger.info(f"lines: {len(response_lines)}")
     for sample_str in response_lines:
-        logger.info(f"line: {sample_str}")
         sample_str = sample_str.decode("utf-8").strip()
-        try:
-            (timestamp, co2_ppm_str) = sample_str.split(",")
-        except ValueError as e:
-            logger.info(f"Could not parse line {sample_str}: {e}")
-            break
-        logger.info(f"Received: {sample_str}")
-        # Parse the timestamp. D/M/Y H:M:S
-        try:
-            co2_ppm_str = co2_ppm_str.strip()
-            (co2_ppm, unit) = co2_ppm_str.split(" ")
-            if unit == "ppm":
-                samples.append(Co2Sample(datetime.strptime(str(timestamp), "%d/%m/%Y %H:%M:%S (%Z)"), float(co2_ppm)))
-                logger.info(f"Parsed: {str(samples[-1])}")
-        except ValueError as e:
-            logger.error(f"Could not parse sample: {sample_str}: {e}")
+        samples.append(parse_sample(sample_str))
     # If the cache file doesn't exist, create it.
     cache_dir = user_cache_dir(CACHE_DIR)
     Path(cache_dir).mkdir(exist_ok=True)
@@ -75,8 +83,7 @@ def get_co2_ppm_cache():
     cache_file = f"{cache_dir}/{CO2_PPM_CACHE}"
     with open(cache_file, 'r') as f:
         for sample_str in f.readlines():
-            (timestamp, co2_ppm) = sample_str.split(',')
-            results.append(Co2Sample(datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S"), float(co2_ppm)))
+            results.append(parse_sample(sample_str))
     # Sort the results by time.
     results.sort(key=lambda x: x.timestamp)
     return results
@@ -110,9 +117,17 @@ def co2_ppm_graph_image(co2_ppm_samples):
     fig, ax = plt.subplots()
     times = [-(datetime.now() - sample.timestamp).total_seconds()/3600 for sample in co2_ppm_samples]
     co2_ppm = [sample.co2_ppm for sample in co2_ppm_samples]
-    ax.plot(times, co2_ppm)
-    ax.set_xlabel('Time')
-    ax.set_ylabel('CO2 ppm')
-    ax.set_title('CO2 ppm')
-    ax.axhline(y=1000, color='r', linestyle='-')
+    temp = [sample.temp_c for sample in co2_ppm_samples]
+    rel_humidity = [sample.rel_humidity for sample in co2_ppm_samples]
+    ax.plot(times, co2_ppm, label="CO2 ppm", color='b')
+    ax.plot(times, temp, label="Temperature (C)", color='r')
+    ax.plot(times, rel_humidity, label="Relative Humidity (%)", color='g')
+    ax.set_xlabel("Time (hours ago)", fontsize=18)
+    ax.set_ylabel("CO2 ppm", fontsize=18)
+    ax.set_title("CO2 ppm over time", fontsize=18)
+    ax.legend(fontsize=18)
+    ax.grid()
+    # Draw threshold horizontal lines for 800 CO2 ppm and 450 CO2 ppm.
+    ax.axhline(y=800, color='r', linestyle='--')
+    ax.axhline(y=450, color='r', linestyle='--')
     return fig
