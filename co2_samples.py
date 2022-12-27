@@ -51,7 +51,6 @@ def parse_sample(sample_str):
         timestamp = datetime.strptime(str(timestamp_str), "%d/%m/%Y %H:%M:%S (%Z)")
         NYC = tz.gettz("America/New_York")
         timestamp = timestamp.replace(tzinfo=NYC)
-        print("======" + timestamp.strftime("%d/%m/%Y %H:%M:%S (%Z)"))
         return Co2Sample(timestamp, float(co2_ppm), float(temp_c), float(rel_humidity))
     except ValueError as e:
         logger.error(f"Could not parse sample: {sample_str}: {e}")
