@@ -1,9 +1,11 @@
 import logging
-import matplotlib
-import matplotlib.pyplot as plt
-import seaborn
+import io
 import os
 import requests
+
+import matplotlib
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from appdirs import user_cache_dir
 from dataclasses import dataclass
@@ -123,27 +125,54 @@ def get_entire_co2_ppm_cache():
 
 def co2_ppm_graph_image(co2_ppm_samples):
     """
-    Generate a graph of CO2 ppm samples.
+    Generate a graph of CO2 ppm samples, Temperature C and Relative Humidity all in the same graph.
+    Use seaborn to make the graph look nice.
+
+    Graphs with more than one axis are a bit tricky to get right. The x-axis is shared between the
+    two axes, but the y-axis is not. The y-axis for the temperature and relative humidity are
+    fixed to the range 0-100, but the y-axis for the CO2 ppm is fixed to the range 0-2000.
     """
-    matplotlib.rc('xtick', labelsize=18)
-    matplotlib.rc('ytick', labelsize=15)
-    fig, ax = plt.subplots()
     times = [-(datetime.now(est) - sample.timestamp).total_seconds()/3600 for sample in co2_ppm_samples]
     co2_ppm = [sample.co2_ppm for sample in co2_ppm_samples]
     temp = [sample.temp_c for sample in co2_ppm_samples]
     rel_humidity = [sample.rel_humidity for sample in co2_ppm_samples]
+    # Use seaborn.
     # Plot CO2_PPM, temperature and relative humidity on different axes.
-    ax.plot(times, co2_ppm, label="CO2 ppm", color='b')
-    ax2 = ax.twinx()
-    ax2.plot(times, temp, label="Temperature (C)", color='g')
-    ax3 = ax.twinx()
-    ax3.plot(times, rel_humidity, label="Relative Humidity (%)", color='r')
-    ax.set_xlabel("Time (hours ago)", fontsize=18)
-    ax.set_ylabel("CO2 ppm", fontsize=18)
-    ax.set_title("CO2 ppm over time", fontsize=18)
-    ax.legend(fontsize=18)
-    ax.grid()
-    # Draw threshold horizontal lines for 800 CO2 ppm and 450 CO2 ppm.
-    ax.axhline(y=800, color='r', linestyle='--')
-    ax.axhline(y=450, color='r', linestyle='--')
-    return fig
+    # Draw CO2 threshold horizontal lines at 450 and 800ppm.
+    # Use color blind friendly colors.
+    
+    # Set the style.
+    sns.set_style("darkgrid")
+    # Set the color palette.
+    sns.set_palette("colorblind")
+    # Set the figure size.
+    fig = plt.figure(figsize=(10, 6))
+    # Create the axes.
+    ax1 = fig.add_subplot(111)
+    ax2 = ax1.twinx()
+    # Plot the data.
+    ax1.plot(times, co2_ppm, color="tab:blue", label="CO2 ppm")
+    ax2.plot(times, temp, color="tab:orange", label="Temperature C")
+    ax2.plot(times, rel_humidity, color="tab:green", label="Relative Humidity")
+    # Set the x-axis label.
+    ax1.set_xlabel("Time (hours ago)")
+    # Set the y-axis labels.
+    ax1.set_ylabel("CO2 ppm")
+    ax2.set_ylabel("Temperature C / Relative Humidity")
+    # Set the y-axis limits.
+    ax1.set_ylim(0, 2000)
+    ax2.set_ylim(0, 100)
+    # Set the x-axis limits.
+    ax1.set_xlim(times[-1], 0)
+    # Draw the CO2 threshold lines.
+    ax1.axhline(y=450, color="tab:red", linestyle="--")
+    ax1.axhline(y=800, color="tab:red", linestyle="--")
+    # Set the legend.
+    ax1.legend(loc="upper left")
+    ax2.legend(loc="upper right")
+    # Save the figure to a buffer.
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png")
+    buf.seek(0)
+    # Return the buffer.
+    return buf

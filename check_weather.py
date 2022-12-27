@@ -117,6 +117,7 @@ def main():
     refresh_co2_ppm_cache()
     co2_ppm_samples = get_co2_ppm_cache()
     # Filter only samples from the last week.
+<<<<<<< HEAD
     est = tz.gettz('America/New_York')
     co2_ppm_samples = [sample for sample in co2_ppm_samples if (datetime.now(est) - sample.timestamp) < timedelta(hours=120)]
     if len(co2_ppm_samples) == 0:
@@ -124,6 +125,11 @@ def main():
         return
     co2_ppm_fig = co2_ppm_graph_image(co2_ppm_samples)
     co2_ppm_graph = image_from_plt_fig(co2_ppm_fig)
+=======
+    co2_ppm_samples = [sample for sample in co2_ppm_samples if (datetime.now() - sample.timestamp) < timedelta(hours=120)]
+    co2_ppm_graph_buf = co2_ppm_graph_image(co2_ppm_samples)
+    co2_ppm_graph = Image.open(co2_ppm_graph_buf)
+>>>>>>> 340c2b0 (Uses seaborn for better data viz.)
     co2_ppm_graph = co2_ppm_graph.resize(display.resolution)
 
     # If the CO2 PPM is above 800, access the shelly smart socket at IP 192.168.0.190 and turn on the fan.
