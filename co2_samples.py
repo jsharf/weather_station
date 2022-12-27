@@ -1,6 +1,7 @@
 import logging
 import matplotlib
 import matplotlib.pyplot as plt
+import seaborn
 import os
 import requests
 
@@ -103,7 +104,7 @@ def get_entire_co2_ppm_cache():
         with open(f"{cache_dir}/{filename}", 'r') as f:
             for sample_str in f.readlines():
                 (timestamp, co2_ppm) = sample_str.split(',')
-                results.append(Co2Sample(datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S"), float(co2_ppm)))
+                results.append(Co2Sample(datetime.strptime(timestamp, "%Y/%m/%d %H:%M:%S (%Z)"), float(co2_ppm)))
     # Sort the results by time.
     results.sort(key=lambda x: x.timestamp)
     return results
@@ -119,9 +120,12 @@ def co2_ppm_graph_image(co2_ppm_samples):
     co2_ppm = [sample.co2_ppm for sample in co2_ppm_samples]
     temp = [sample.temp_c for sample in co2_ppm_samples]
     rel_humidity = [sample.rel_humidity for sample in co2_ppm_samples]
+    # Plot CO2_PPM, temperature and relative humidity on different axes.
     ax.plot(times, co2_ppm, label="CO2 ppm", color='b')
-    ax.plot(times, temp, label="Temperature (C)", color='r')
-    ax.plot(times, rel_humidity, label="Relative Humidity (%)", color='g')
+    ax2 = ax.twinx()
+    ax2.plot(times, temp, label="Temperature (C)", color='g')
+    ax3 = ax.twinx()
+    ax3.plot(times, rel_humidity, label="Relative Humidity (%)", color='r')
     ax.set_xlabel("Time (hours ago)", fontsize=18)
     ax.set_ylabel("CO2 ppm", fontsize=18)
     ax.set_title("CO2 ppm over time", fontsize=18)
