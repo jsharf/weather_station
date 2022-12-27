@@ -137,7 +137,7 @@ def co2_ppm_graph_image(co2_ppm_samples):
     rel_humidity = [sample.rel_humidity for sample in co2_ppm_samples]
     # Use seaborn.
     # Plot CO2_PPM, temperature and relative humidity on different axes.
-    # Draw CO2 threshold horizontal lines at 450 and 800ppm.
+    # Draw CO2 threshold horizontal lines at 510 and 800ppm.
     # Use color blind friendly colors.
     
     # Set the style.
@@ -164,7 +164,7 @@ def co2_ppm_graph_image(co2_ppm_samples):
     # Set the x-axis range. Scale it to the data.
     ax1.set_xlim(min(times), max(times))
     # Draw the CO2 threshold lines.
-    ax1.axhline(y=450, color="tab:red", linestyle="--")
+    ax1.axhline(y=510, color="tab:red", linestyle="--")
     ax1.axhline(y=800, color="tab:red", linestyle="--")
     # Set the legend.
     ax1.legend(loc="upper left")

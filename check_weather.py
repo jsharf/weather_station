@@ -130,7 +130,7 @@ def main():
     # If the CO2 PPM has fallen below 450, we can shut the fan off.
     if co2_ppm_samples[-1].co2_ppm > 800:
         requests.get(url="http://192.168.0.190/relay/0?turn=on")
-    elif co2_ppm_samples[-1].co2_ppm < 450:
+    elif co2_ppm_samples[-1].co2_ppm < 510:
         requests.get(url="http://192.168.0.190/relay/0?turn=off")
 
     with Image.open(SUBWAY_MAP) as im:
