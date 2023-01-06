@@ -137,7 +137,7 @@ def main():
         im = im.resize(display.resolution)
         overlay_image(im, co2_ppm_graph, (0, 0))
         draw = ImageDraw.Draw(im)
-        overlay_timestamp(draw, font_size=25, offset=(450, 390))
+        overlay_timestamp(draw, font_size=25, offset=(450, 10))
         display.set_image(im)
         display.show()
 

@@ -116,8 +116,10 @@ def get_entire_co2_ppm_cache():
             continue
         with open(f"{cache_dir}/{filename}", 'r') as f:
             for sample_str in f.readlines():
-                (timestamp, co2_ppm) = sample_str.split(',')
-                results.append(Co2Sample(datetime.strptime(timestamp, "%Y/%m/%d %H:%M:%S (%Z)"), float(co2_ppm)))
+                sample = parse_sample(sample_str)
+                if sample is None:
+                    continue
+                results.append(sample)
     # Sort the results by time.
     results.sort(key=lambda x: x.timestamp)
     return results
