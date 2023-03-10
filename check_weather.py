@@ -126,11 +126,12 @@ def main():
     co2_ppm_graph = Image.open(co2_ppm_graph_buf)
     co2_ppm_graph = co2_ppm_graph.resize(display.resolution)
 
-    # If the CO2 PPM is above 800, access the shelly smart socket at IP 192.168.0.190 and turn on the fan.
-    # If the CO2 PPM has fallen below 450, we can shut the fan off.
-    if co2_ppm_samples[-1].co2_ppm > 800:
+    # If the CO2 PPM is above 1000, access the shelly smart socket at IP 192.168.0.190 and turn on the fan.
+    # If the CO2 PPM has fallen below 600, we can shut the fan off.
+    # Numbers updated after Lexie movin to better accomodate 2 people.
+    if co2_ppm_samples[-1].co2_ppm > 1100:
         requests.get(url="http://192.168.0.190/relay/0?turn=on")
-    elif co2_ppm_samples[-1].co2_ppm < 510:
+    elif co2_ppm_samples[-1].co2_ppm < 600:
         requests.get(url="http://192.168.0.190/relay/0?turn=off")
 
     with Image.open(SUBWAY_MAP) as im:
