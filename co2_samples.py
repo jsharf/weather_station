@@ -166,8 +166,8 @@ def co2_ppm_graph_image(co2_ppm_samples):
     # Set the x-axis range. Scale it to the data.
     ax1.set_xlim(min(times), max(times))
     # Draw the CO2 threshold lines.
-    ax1.axhline(y=510, color="tab:red", linestyle="--")
-    ax1.axhline(y=800, color="tab:red", linestyle="--")
+    ax1.axhline(y=600, color="tab:red", linestyle="--")
+    ax1.axhline(y=1100, color="tab:red", linestyle="--")
     # Set the legend.
     ax1.legend(loc="upper left")
     ax2.legend(loc="upper right")
